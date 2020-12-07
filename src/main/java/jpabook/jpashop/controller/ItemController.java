@@ -103,11 +103,11 @@ public class ItemController {
         form.setIsbn(item.getIsbn());
 
         model.addAttribute("form", form);
-        return "items/updateItemForm";
+        return "items/updateBookForm";
     }
 
     @PostMapping("/items/{itemId}/edit") //중간에 itemId 는 path variable 이라는 것이다.
-    public String updateItem(@PathVariable String itemId, @ModelAttribute("form") BookForm form) {
+    public String updateBook(@PathVariable String itemId, @ModelAttribute("form") BookForm form) {
 
         Book book = new Book();
         book.setId(form.getId());
