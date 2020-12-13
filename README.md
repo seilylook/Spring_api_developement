@@ -198,3 +198,47 @@
 ##### 2. 다른 데이터들을 추가할 때 편리성을 위해 method 단위로 분리해준다.
 ##### 3. entity manager 의 persist 를 통해 바뀐 entity 정보를 편리하게 저장해준다.
 
+---------------
+
+## 2020 - 12 -13
+### Module 을 사용한 Entity 직접 노출 (사용하면 안되는 이유)
+    package jpabook.jpashop.api;
+    
+    import jpabook.jpashop.domain.Order;
+    import jpabook.jpashop.repository.OrderRepository;
+    import jpabook.jpashop.repository.OrderSearch;
+    import lombok.RequiredArgsConstructor;
+    import org.springframework.web.bind.annotation.GetMapping;
+    import org.springframework.web.bind.annotation.RestController;
+    
+    import java.util.List;
+    
+    /*
+    * xToOne(ManyToOne, OneToOne)ß
+    * order
+    * order -> member (many to one)
+    * order -> delivery (one to one)
+    * order -> orderItem (one to many)
+    * */
+    @RestController
+    @RequiredArgsConstructor
+    public class OrderSimpleApiController {
+    
+        private final OrderRepository orderRepository;
+    
+        @GetMapping("/api/v1/sample-orders")
+        public List<Order> ordersV1() {
+            List<Order> all = orderRepository.findAllByString(new OrderSearch());
+            return all;
+        }
+    
+    
+    
+    }
+
+##### order -> member / order -> address 는 지연로딩이다. 
+##### 따라서 실제 entity 대신에 proxy 라는 임시 저장소를 사용한다. 
+##### jackson 라이브러리는 기본적으로 이 proxy 객체를 json 으로 어떻게 생성해야 되는 지 모른다.
+##### 손쉬운 방법으로는 Hibernate5Module 을 spring bean 으로 등록하여 해결가능하다. 
+##### 하지만 결과적으로 이 또한 entity 직접 참조이므로 하지 않는 것이 좋다.
+
