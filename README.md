@@ -242,3 +242,47 @@
 ##### 손쉬운 방법으로는 Hibernate5Module 을 spring bean 으로 등록하여 해결가능하다. 
 ##### 하지만 결과적으로 이 또한 entity 직접 참조이므로 하지 않는 것이 좋다.
 
+-------------
+## 2020 - 12 - 14
+### 간단한 주문 조회: entity 를 DTO 로 변경. 이를 통해 entity spec 을 유지해준다. 
+    @GetMapping("/api/v2/simple-orders")
+        public List<SimpleOrderDto> ordersV2() {
+            // order 가 2개
+            // N + 1 문제가 발생한다.
+            List<Order> orders = orderRepository.findAllByString(new OrderSearch());
+    
+            // 결과가 2개면 두번의 반복이 수행
+            List<SimpleOrderDto> result = orders.stream()
+                    .map(o -> new SimpleOrderDto(o))
+                    .collect(Collectors.toList());
+    
+            return result;
+        }
+    
+        @Data
+        static class SimpleOrderDto {
+            private Long orderId;
+            private String name;
+            private LocalDateTime orderDate;
+            private OrderStatus orderStatus;
+            private Address address;
+    
+            public SimpleOrderDto(Order order) {
+                orderId = order.getId();
+                name = order.getMember().getName(); // LAZY 초기화
+                orderDate = order.getOrderDate();
+                orderStatus = order.getStatus();
+                address = order.getDelivery().getAddress();
+            }
+        }
+##### entity 를 직접 노출하지 않고 dto 를 통해 로직을 짜게되면 
+##### 예를 들어 entity 변수명을 바꾸더라도 contoller 에서 사용할 때 에러가 발생해 쉽게 캐치할 수 있다.
+##### 하지만 앞서 v1, v2 둘 다 lazy loading 으로 인한 불필요한 query 호출이 발생하는 것이다. 
+##### entity 를 DTO 로 변환하는 것이 일반적이고 안정적인 방법이다.
+##### 쿼리가 총 N + 1 번 실행된다.
+* order 조회 1번 (order 조회 결과 수가 N 개가 된다.)
+* order -> member 지연 로딩 조회 N 번
+* order -> delivery 지연 로딩 조회 N 번
+* 예) order 의 결과가 4개면 worst case 1 + 4 -> 4번 실행된다.
+  * 지연 로딩 (LAZY Loading)은 영속성 context 에서 조회하므로, 이미 조회된 경우 쿼리를 생략한다. 
+
