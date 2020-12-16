@@ -65,6 +65,7 @@ public class OrderSimpleApiController {
             address = order.getDelivery().getAddress();
         }
     }
+
     @GetMapping("/api/v3/simple-orders")
     public List<SimpleOrderDto> ordersV3() {
         List<Order> orders = orderRepository.findAllWithMemberDelivery();
@@ -73,5 +74,11 @@ public class OrderSimpleApiController {
                 .collect(toList());
         return result;
     }
+
+    @GetMapping("/api/v4/simple-orders")
+    public List<OrderSimpleQueryDto> ordersV4() {
+        return orderSimpleQueryRepository.findOrderDtos();
+    }
+
 
 }
