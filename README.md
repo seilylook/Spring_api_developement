@@ -286,3 +286,59 @@
 * 예) order 의 결과가 4개면 worst case 1 + 4 -> 4번 실행된다.
   * 지연 로딩 (LAZY Loading)은 영속성 context 에서 조회하므로, 이미 조회된 경우 쿼리를 생략한다. 
 
+---------------
+
+## 2020 - 12 - 17
+### fetch & join 을 이용한 최적화
+#### /api/OrderSimpleApiController
+    @GetMapping("/api/v3/simple-orders")
+        public List<SimpleOrderDto> orderV3() {
+            List<Order> orders = orderRepository.findAllWithMemberDelivery();
+            // 실무에서 대부분의 문제는 n+1 문제로 인해 발생한다.
+            // 기본적으로 lazy로 깔고 내가 필요한것만 fetch join으로 묶어서 디비에서 한방에 가져온다면
+            // n+1문제가 발생하지 않게 된다.
+            List<SimpleOrderDto> result = orders.stream()
+                    .map(o -> new SimpleOrderDto(o))
+                    .collect(toList());
+    
+            return result;
+        }
+        // v2와 v3는 기능적으로는 똑같다.
+        // 하지만 query 호출을 보게 된다면 왜 fetch join을 사용해야 되는지 알 수 있다.
+        // fetch 라는 JPA 명령어를 통해 간단하게 해결할 수 있는 것이다.
+        // fetch join 으로 order -> member, order -> delivery 는 이미 조회된 상태 이므로
+        // lazy loading 이 일어나지 않는다.
+
+##### 실무에서의 대부분 문제는 n + 1 문제로 인해 발생한다.
+##### 기본적으로 lazy 를 깔고 내가 필요한 것만 fetch join으로 묶어 db에서 한번에 가져온다면
+##### n + 1 문제가 발생하지 않게 된다.
+##### v2와 v3는 기능적으로는 똑같다.
+##### 하지만 query 호출을 보게 된다면 왜 fetch join을 사용해야 되는지 알 수 있다.
+##### fetch 라는 JPA 명령어를 통해 간단하게 해결할 수 있는 것이다.
+##### fetch join 으로 order -> member, order -> delivery 는 이미 조회된 상태 이므로
+##### lazy loading 이 일어나지 않는다.
+
+    public List<Order> findAllWithMemberDelivery() {
+            return em.createQuery(
+    
+        "select o from Order o" +
+                " join fetch o.member m" +
+                " join fetch o.delivery d", Order.class)
+                    .getResultList();
+    
+            // order 를 가져올 때 객체 그래프까지 한번에 가져오고 싶어서 사용한다.
+            // 이렇게 하면 order를 조회하는데 sql 쪽에서는 join 이면서
+            // select 를 절에서 같이 한번에 가져오게 된다.
+            // 객체의 값을 채워서 다같이 가져와 버린다.
+            // 이를 바로 패치 조인 이라고 한다.
+            // 기술적으로는 join 을 sql 에 던져주는데 이는 sql 에는 없다.
+            // jpa 에 있는 fetch 를 사용해서 가져오게 되는 것이다.
+        }
+
+##### v2와 v3는 기능적으로는 똑같다.
+##### 하지만 query 호출을 보게 된다면 왜 fetch join을 사용해야 되는지 알 수 있다.
+##### fetch 라는 JPA 명령어를 통해 간단하게 해결할 수 있는 것이다.
+##### fetch join 으로 order -> member, order -> delivery 는 이미 조회된 상태 이므로
+##### lazy loading 이 일어나지 않는다.
+
+

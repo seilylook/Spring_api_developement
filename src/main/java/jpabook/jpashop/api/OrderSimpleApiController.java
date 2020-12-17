@@ -49,6 +49,24 @@ public class OrderSimpleApiController {
         return result;
     }
 
+    @GetMapping("/api/v3/simple-orders")
+    public List<SimpleOrderDto> orderV3() {
+        List<Order> orders = orderRepository.findAllWithMemberDelivery();
+        // 실무에서 대부분의 문제는 n+1 문제로 인해 발생한다.
+        // 기본적으로 lazy로 깔고 내가 필요한것만 fetch join으로 묶어서 디비에서 한방에 가져온다면
+        // n+1문제가 발생하지 않게 된다.
+        List<SimpleOrderDto> result = orders.stream()
+                .map(o -> new SimpleOrderDto(o))
+                .collect(toList());
+
+        return result;
+    }
+    // v2와 v3는 기능적으로는 똑같다.
+    // 하지만 query 호출을 보게 된다면 왜 fetch join을 사용해야 되는지 알 수 있다.
+    // fetch 라는 JPA 명령어를 통해 간단하게 해결할 수 있는 것이다.
+    // fetch join 으로 order -> member, order -> delivery 는 이미 조회된 상태 이므로
+    // lazy loading 이 일어나지 않는다.
+
     @Data
     static class SimpleOrderDto {
         private Long orderId;
@@ -66,19 +84,6 @@ public class OrderSimpleApiController {
         }
     }
 
-    @GetMapping("/api/v3/simple-orders")
-    public List<SimpleOrderDto> ordersV3() {
-        List<Order> orders = orderRepository.findAllWithMemberDelivery();
-        List<SimpleOrderDto> result = orders.stream()
-                .map(o -> new SimpleOrderDto(o))
-                .collect(toList());
-        return result;
-    }
-
-    @GetMapping("/api/v4/simple-orders")
-    public List<OrderSimpleQueryDto> ordersV4() {
-        return orderSimpleQueryRepository.findOrderDtos();
-    }
 
 
 }
