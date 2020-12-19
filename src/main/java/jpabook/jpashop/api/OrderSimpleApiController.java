@@ -5,6 +5,8 @@ import jpabook.jpashop.domain.Order;
 import jpabook.jpashop.domain.OrderStatus;
 import jpabook.jpashop.repository.OrderRepository;
 import jpabook.jpashop.repository.OrderSearch;
+import jpabook.jpashop.repository.order.simplequery.OrderSimpleQueryDto;
+import jpabook.jpashop.repository.order.simplequery.OrderSimpleQueryRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 
@@ -28,6 +29,7 @@ import static java.util.stream.Collectors.toList;
 public class OrderSimpleApiController {
 
     private final OrderRepository orderRepository;
+    private final OrderSimpleQueryRepository orderSimpleQueryRepository;
 
     @GetMapping("/api/v1/sample-orders")
     public List<Order> ordersV1() {
@@ -67,6 +69,20 @@ public class OrderSimpleApiController {
     // fetch join 으로 order -> member, order -> delivery 는 이미 조회된 상태 이므로
     // lazy loading 이 일어나지 않는다.
 
+    @GetMapping("/api/v4/simple-orders")
+    public List<OrderSimpleQueryDto> orderV4() {
+        // jpa 에서 dto 로 바로 꺼내올 수 있는 기능을 구현하자.
+        return orderSimpleQueryRepository.findOrderDtos();
+        // 이렇게 해놓으면 select 절에서 호출값이 줄어든다.
+        // 이것이 가능한 이유는 query 를 직접 작성했기에 가능한 것이다.
+        // 그렇다고 v4가 v3 무작정 좋은 것은 아니다.
+        // v3는 외부의 상태를 건드리지 않고 자유롭게 변경할 수 있다.
+        // 이에 반해 v4는 dto로 조회하기 때문에 변경이 어렵다.
+        // repository는 entity 를 조회하는데 써야한다.
+        // 그래서 v3 사용해도 무방하다고 생각 가능
+        // v4의 단점을 보완하고자 새로운 repository를 만들어준다.
+    }
+
     @Data
     static class SimpleOrderDto {
         private Long orderId;
@@ -83,6 +99,7 @@ public class OrderSimpleApiController {
             address = order.getDelivery().getAddress();
         }
     }
+
 
 
 
