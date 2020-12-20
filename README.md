@@ -427,4 +427,51 @@
 * 그래서 v3 사용해도 무방하다고 생각 가능
 * v4의 단점을 보완하고자 새로운 repository를 만들어준다.
 
+--------------
+
+## 2020 - 12 - 20
+### 주문 조회 V1: Entity 직접 노출
+#### jpabook/jpashop/api/OrderApiController
+
+    package jpabook.jpashop.api;
+    
+    import jpabook.jpashop.domain.Order;
+    import jpabook.jpashop.domain.OrderItem;
+    import jpabook.jpashop.repository.OrderRepository;
+    import jpabook.jpashop.repository.OrderSearch;
+    import lombok.RequiredArgsConstructor;
+    import org.springframework.web.bind.annotation.GetMapping;
+    import org.springframework.web.bind.annotation.RestController;
+    
+    import java.util.List;
+    
+    @RestController
+    @RequiredArgsConstructor
+    public class OrderApiController {
+    
+        private final OrderRepository orderRepository;
+    
+        @GetMapping("/api/v1/orders")
+        public List<Order> ordersV1() {
+            List<Order> all = orderRepository.findAllByString(new OrderSearch());
+            for (Order order : all) {
+                order.getMember().getName(); //Lazy 강제 초기화 order.getDelivery().getAddress(); //Lazy 강제 초기환
+                List<OrderItem> orderItems = order.getOrderItems();
+                orderItems.stream().forEach(o -> o.getItem().getName()); //Lazy 강제
+    
+            }
+            return all; }
+    }
+
+* entity 직접 노출은 삼가.
+* order -> member 와 order -> address 는 지연로딩이다. 따라서 실제 entity 대신에 프록시가 존재한다.
+* jackson 라이브러리는 기본적으로 이 프록시 객체를 json으로 어떻게 생성해야 되는지 모르기에 예외가 발생한다.
+* Hibernate5Module을 spring bean으로 등록하면 해결가능하다. 
+> 계속 언급했듯이 간단한 토이 프로젝트가 아니면 entity를 API 응답으로 외부에 노출하는 것은 좋지 않다.
+> 따라서 Hibernate5Module을 사용하기 보다는 DTO로 변환해서 반환하는 것이 좋은 방법이다.
+> 주의: 지연 로딩(LAZY)을 피하기 위해 즉시 로딩(EARGR)으로 설정하면 안된다! 
+> 즉시 로딩 때문에 연관관 계가 필요 없는 경우에도 데이터를 항상 조회해서 성능 문제가 발생할 수 있다. 
+> 즉시 로딩으로 설정하면 성능 튜닝이 매우 어려워 진다.
+> 항상 지연 로딩을 기본으로 하고, 성능 최적화가 필요한 경우에는 페치 조인(fetch join)을 사용해라!(V3에 서 설명)
+
 
