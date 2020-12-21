@@ -474,4 +474,63 @@
 > 즉시 로딩으로 설정하면 성능 튜닝이 매우 어려워 진다.
 > 항상 지연 로딩을 기본으로 하고, 성능 최적화가 필요한 경우에는 페치 조인(fetch join)을 사용해라!(V3에 서 설명)
 
+-----------------
+
+## 2020 - 12 - 21
+### 주문 조회 V2: 엔티티를 DTO로 변환
+#### /jpabook.jpashop/api/OrderApiController
+    @GetMapping("/api/v2/orders")
+        public List<OrderDto> ordersV2() {
+            List<Order> orders = orderRepository.findAllByString(new OrderSearch());
+            List<OrderDto> result = orders.stream()
+                    .map(o -> new OrderDto(o))
+                    .collect(toList());
+            return result;
+        }
+    
+        @Data
+        static class OrderDto {
+    
+            private Long orderId;
+            private String name;
+            private LocalDateTime orderDate;
+            private OrderStatus orderStatus;
+            private Address address;
+            private List<OrderItemDto> orderItems;
+    
+            public OrderDto(Order order) {
+                orderId = order.getId();
+                name = order.getMember().getName();
+                orderDate = order.getOrderDate();
+                orderStatus = order.getStatus();
+                address = order.getDelivery().getAddress();
+                orderItems = order.getOrderItems().stream()
+                        .map(orderItem -> new OrderItemDto(orderItem))
+                        .collect(toList());
+            }
+        }
+    
+        @Data
+        static class OrderItemDto {
+            private String itemName;
+            private int orderPrice;
+            private int count;
+    
+            public OrderItemDto(OrderItem orderItem) {
+                itemName = orderItem.getItem().getName();
+                orderPrice = orderItem.getOrderPrice();
+                count = orderItem.getCount();
+            }
+        }
+* 지연 로딩으로 너무 많은 sql 호출이 수행된다.
+* sql 실행 수
+    * order 1번
+    * member, address N 번 (order 조회 수 만큼)
+    * orderItem N 번 (order 조 수 만큼)
+    * item N 번 (orderItem 조회 수 만큼)
+> 지연 로딩은 영속성 컨텍스트에 있으면 영속성 컨텍스트에 있는 엔티티를 사용하고 없으면 SQL을 실 행한다. 따라서 같은 영속성 컨텍스트에서 이미 로딩한 회원 엔티티를 추가로 조회하면 SQL을 실행하지 않 는다.
+
+    
+
+
 
