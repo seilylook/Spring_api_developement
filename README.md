@@ -528,7 +528,39 @@
     * member, address N 번 (order 조회 수 만큼)
     * orderItem N 번 (order 조 수 만큼)
     * item N 번 (orderItem 조회 수 만큼)
-> 지연 로딩은 영속성 컨텍스트에 있으면 영속성 컨텍스트에 있는 엔티티를 사용하고 없으면 SQL을 실 행한다. 따라서 같은 영속성 컨텍스트에서 이미 로딩한 회원 엔티티를 추가로 조회하면 SQL을 실행하지 않 는다.
+> 지연 로딩은 영속성 컨텍스트에 있으면 영속성 컨텍스트에 있는 엔티티를 사용하고 없으면 SQL을 실 행한다. 따라서 같은 영속성 컨텍스트에서 이미 로딩한 회원 엔티티를 추가로 조회하면 SQL을 실행하지 않는다.
+
+---------------
+
+## 2020 - 12 - 22
+### 주문 조회 V3: 엔티티를 DTO로 변환 - 페치 조인 최적화
+#### /jpabook.jpashop/api/OrderApiController
+    @GetMapping("/api/v3/orders")
+        public List<OrderDto> orderV3() {
+            List<Order> orders = orderRepository.findAllWithItem();
+            List<OrderDto> result = orders.stream()
+                    .map(o -> new OrderDto(o))
+                    .collect(toList());
+            return result;
+        }
+
+#### /jpabook.jpashop/repository/OrderRepository
+    public List<Order> findAllWithItem() {
+            return em.createQuery(
+                    "select distinct o from Order o" +
+                            " join fetch o.member m" +
+                            " join fetch o.delivery d" +
+                            " join fetch o.orderItems oi" +
+                            " join fetch oi.item i", Order.class)
+                    .getResultList();
+        }
+* fetch join으로 SQL 이 1번만 실행된다. 
+* distinct 를 사용한 이유는 1대다 조인이 있으므로 데이터베이스 row가 증가한다. 그 결과 같은 order
+  엔티티의 조회 수도 증가하게 된다. JPA의 distinct는 SQL에 distinct를 추가하고, 더해서 같은 엔티티가 조회되면, 애플리케이션에서 중복을 걸러준다. 이 예에서 order가 컬렉션 페치 조인 때문에 중복 조회 되는 것을 막아준다.        
+* 단점
+    * 페이징이 불가능하다. 페이징이라는 것은 DB에서 내가 원하는 갯수만큼 가져오는 것을 말한다. 
+> 참고: 컬렉션 페치 조인을 사용하면 페이징이 불가능하다. 하이버네이트는 경고 로그를 남기면서 모든 데이 터를 DB에서 읽어오고, 메모리에서 페이징 해버린다(매우 위험하다). 자세한 내용은 자바 ORM 표준 JPA 프로그래밍의 페치 조인 부분을 참고하자.
+> 참고: 컬렉션 페치 조인은 1개만 사용할 수 있다. 컬렉션 둘 이상에 페치 조인을 사용하면 안된다. 데이터가 부정합하게 조회될 수 있다. 자세한 내용은 자바 ORM 표준 JPA 프로그래밍을 참고하자.
 
     
 

@@ -7,15 +7,12 @@ import jpabook.jpashop.domain.OrderStatus;
 import jpabook.jpashop.repository.OrderRepository;
 import jpabook.jpashop.repository.OrderSearch;
 import lombok.Data;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.swing.plaf.BorderUIResource;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 
@@ -40,6 +37,20 @@ public class OrderApiController {
     @GetMapping("/api/v2/orders")
     public List<OrderDto> ordersV2() {
         List<Order> orders = orderRepository.findAllByString(new OrderSearch());
+        List<OrderDto> result = orders.stream()
+                .map(o -> new OrderDto(o))
+                .collect(toList());
+        return result;
+    }
+
+    // 이를 통해 v2와 코드가 그대로인데 호출은 1번으로 해결가능하다.
+    // 이것은 극단적인 편리함을 제공할 수 있다.
+    // 쿼리 호출에서 distinct 하나만을 통해 성능 최적화.
+    // 하지만 가장 큰 문제점으로 페이징이 불가능하다.
+    // 이에 따라 1대 다 관계에서는 패치 조인 distinct를 사용하면 안된다.
+    @GetMapping("/api/v3/orders")
+    public List<OrderDto> orderV3() {
+        List<Order> orders = orderRepository.findAllWithItem();
         List<OrderDto> result = orders.stream()
                 .map(o -> new OrderDto(o))
                 .collect(toList());
