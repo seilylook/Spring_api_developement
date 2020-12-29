@@ -60,22 +60,22 @@ public class OrderRepository {
         return query.getResultList();
     }
 
-//    public List<Order> findAllWithMemberDelivery() {
-//        return em.createQuery(
-//
-//                "select o from Order o" +
-//                        " join fetch o.member m" +
-//                        " join fetch o.delivery d", Order.class)
-//                .getResultList();
-//
-//        // order 를 가져올 때 객체 그래프까지 한번에 가져오고 싶어서 사용한다.
-//        // 이렇게 하면 order를 조회하는데 sql 쪽에서는 join 이면서
-//        // select 를 절에서 같이 한번에 가져오게 된다.
-//        // 객체의 값을 채워서 다같이 가져와 버린다.
-//        // 이를 바로 패치 조인 이라고 한다.
-//        // 기술적으로는 join 을 sql 에 던져주는데 이는 sql 에는 없다.
-//        // jpa 에 있는 fetch 를 사용해서 가져오게 되는 것이다.
-//    }
+    public List<Order> findAllWithMemberDelivery() {
+        return em.createQuery(
+
+                "select o from Order o" +
+                        " join fetch o.member m" +
+                        " join fetch o.delivery d", Order.class)
+                .getResultList();
+
+        // order 를 가져올 때 객체 그래프까지 한번에 가져오고 싶어서 사용한다.
+        // 이렇게 하면 order를 조회하는데 sql 쪽에서는 join 이면서
+        // select 를 절에서 같이 한번에 가져오게 된다.
+        // 객체의 값을 채워서 다같이 가져와 버린다.
+        // 이를 바로 패치 조인 이라고 한다.
+        // 기술적으로는 join 을 sql 에 던져주는데 이는 sql 에는 없다.
+        // jpa 에 있는 fetch 를 사용해서 가져오게 되는 것이다.
+    }
 
 
     public List<Order> findAllWithItem() {
@@ -88,7 +88,7 @@ public class OrderRepository {
                 .getResultList();
     }
 
-    public List<Order> findAllWithMemberDelivery(int offset, int limit) {
+    public List<Order> findWithMemberDelivery(int offset, int limit) {
         return em.createQuery(
 
                 "select o from Order o" +
@@ -96,19 +96,6 @@ public class OrderRepository {
                         " join fetch o.delivery d", Order.class
         )       .setFirstResult(offset)
                 .setMaxResults(limit)
-                .getResultList();
-    }
-
-    private List<OrderItemQueryDto> findOrderItems(Long orderId) {
-        return em.createQuery(
-                "select new
-                jpabook.jpashop.repository.order.query.OrderItemQueryDto(oi.order.id, i.name,
-                        oi.orderPrice, oi.count)" +
-                " from OrderItem oi" +
-                        " join oi.item i" +
-                        " where oi.order.id = : orderId",
-                OrderItemQueryDto.class)
-                .setParameter("orderId", orderId)
                 .getResultList();
     }
 }
