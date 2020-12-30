@@ -77,7 +77,6 @@ public class OrderRepository {
         // jpa 에 있는 fetch 를 사용해서 가져오게 되는 것이다.
     }
 
-
     public List<Order> findAllWithItem() {
         return em.createQuery(
                 "select distinct o from Order o" +

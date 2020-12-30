@@ -65,11 +65,16 @@ public class OrderApiController {
     public List<OrderDto> orderV3_page(
             @RequestParam(value = "offset", defaultValue = "0") int offset,
             @RequestParam(value = "limit", defaultValue = "100") int limit) {
-        List<Order> orders = orderRepository.findAllWithMemberDelivery(offset, limit);
+        List<Order> orders = orderRepository.findWithMemberDelivery(offset, limit);
         List<OrderDto> result = orders.stream()
                 .map(o -> new OrderDto(o))
                 .collect(Collectors.toList());
         return result;
+    }
+
+    @GetMapping("api/v4/orders")
+    public List<OrderQueryDto> orderV4() {
+        return orderQueryRepository.findOrderQueryDtos();
     }
 
     @Data
