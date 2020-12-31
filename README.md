@@ -562,6 +562,129 @@
 > 참고: 컬렉션 페치 조인을 사용하면 페이징이 불가능하다. 하이버네이트는 경고 로그를 남기면서 모든 데이 터를 DB에서 읽어오고, 메모리에서 페이징 해버린다(매우 위험하다). 자세한 내용은 자바 ORM 표준 JPA 프로그래밍의 페치 조인 부분을 참고하자.
 > 참고: 컬렉션 페치 조인은 1개만 사용할 수 있다. 컬렉션 둘 이상에 페치 조인을 사용하면 안된다. 데이터가 부정합하게 조회될 수 있다. 자세한 내용은 자바 ORM 표준 JPA 프로그래밍을 참고하자.
 
+--------------
+## 2020 - 12 - 31
+### 주문 조회: V4, jpa에서 dto 직접 조회
+#### japbook.jpashop.repository.order.query.OrderItemQueryDto
+    package jpabook.jpashop.repository.order.query;
+    
+    import com.fasterxml.jackson.annotation.JsonIgnore;
+    import lombok.Data;
+    
+    @Data
+    public class OrderItemQueryDto {
+    
+        @JsonIgnore
+        private Long orderId;
+        private String itemName;
+        private int orderPrice;
+        private int count;
+    
+        public OrderItemQueryDto(Long orderId, String itemName, int orderPrice, int count) {
+            this.orderId = orderId;
+            this.itemName = itemName;
+            this.orderPrice = orderPrice;
+            this.count = count;
+        }
+    }
+
+#### japbook.jpashop.repository.order.query.OrderQueryDto
+    package jpabook.jpashop.repository.order.query;
+    
+    import jpabook.jpashop.domain.Address;
+    import jpabook.jpashop.domain.OrderStatus;
+    import lombok.Data;
+    import lombok.EqualsAndHashCode;
+    
+    import java.time.LocalDateTime;
+    import java.util.List;
+    
+    @Data
+    @EqualsAndHashCode(of = "orderId")
+    public class OrderQueryDto {
+    
+        private Long orderId;
+        private String name;
+        private LocalDateTime orderDate;
+        private OrderStatus orderStatus;
+        private Address address;
+        private List<OrderItemQueryDto> orderItems;
+    
+        public OrderQueryDto(Long orderId, String name, LocalDateTime orderDate, OrderStatus orderStatus, Address address) {
+            this.orderId = orderId;
+            this.name = name;
+            this.orderDate = orderDate;
+            this.orderStatus = orderStatus;
+            this.address = address;
+        }
+    
+    
+    }
+
+#### japbook.jpashop.repository.order.query.OrderQueryRepository
+    package jpabook.jpashop.repository.order.query;
+    
+    import lombok.RequiredArgsConstructor;
+    import org.springframework.stereotype.Repository;
+    
+    import javax.persistence.EntityManager;
+    import java.util.List;
+    import java.util.Map;
+    import java.util.stream.Collectors;
+    
+    @Repository
+    @RequiredArgsConstructor
+    public class OrderQueryRepository {
+        private final EntityManager em;
+    
+        public List<OrderQueryDto> findOrderQueryDtos() { //루트 조회(toOne 코드를 모두 한번에 조회)
+            List<OrderQueryDto> result = findOrders();
+            result.forEach(o -> {
+            List<OrderItemQueryDto> orderItems =
+                    findOrderItems(o.getOrderId());
+            o.setOrderItems(orderItems);
+        });
+            return result;
+    }
+    
+        /**
+         * 1:N 관계(컬렉션)를 제외한 나머지를 한번에 조회
+         */
+        private List<OrderQueryDto> findOrders() {
+            return em.createQuery(
+                    "select new jpabook.jpashop.repository.order.query.OrderQueryDto(o.id, m.name, o.orderDate, o.status, d.address)" +
+                    " from Order o" +
+                            " join o.member m" +
+                            " join o.delivery d", OrderQueryDto.class)
+                    .getResultList();
+        }
+    /**
+     * 1:N 관계인 orderItems 조회
+     */
+        private List<OrderItemQueryDto> findOrderItems(Long orderId){
+                return em.createQuery(
+                "select new jpabook.jpashop.repository.order.query.OrderItemQueryDto(oi.order.id,i.name, oi.orderPrice,oi.count)" +
+                " from OrderItem oi"+
+                " join oi.item i"+
+                " where oi.order.id = : orderId",
+                OrderItemQueryDto.class)
+                .setParameter("orderId",orderId)
+                .getResultList();
+        }
+    }
+
+#### japbook.jpashop.api.OrderApiController
+    @GetMapping("/api/v4/orders")
+        public List<OrderQueryDto> ordersV4() {
+            return orderQueryRepository.findOrderQueryDtos();
+        }
+        
+* Query: 루트 1번, 컬렉션 N 번 실행
+* ToOne(N:1, 1:1) 관계들을 먼저 조회하고, ToMany(1:N) 관계는 각각 별도로 처리한다.
+    * 이런방식을 선택한 이유는 다음과 같다.
+        * ToOne 관계는 조인해도 데이터 ROW 수가 증가하지 않는다.
+        * ToMany(1:N) 관계는 조인해도 데이터 row 수가 증가한다. 
+* row 수가 증가하지 않는 ToOne 관계는 조인으로 최적화 하기 쉬우므로 한번에 조회하고, ToMany 관계 는 최적화 하기 어려우므로 findOrderItems() 같은 별도의 메서드로 조회한다.
     
 
 
