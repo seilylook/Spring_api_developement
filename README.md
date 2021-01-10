@@ -724,3 +724,120 @@
 * Query: 루트 1번, 컬렉션 1번
 * ToOne 관계들을 먼저 조회하고, 여기서 얻은 식별자 orderId로 ToMany 관계인 orderItem을 한꺼번에 조회
 * MAP을 사용해서 매칭 성능을 향상 (O(1))
+
+---------------------
+
+## 2021 - 01 - 10
+### 주문 조회 V6: JPA에서 DTO로 직접 조회, 플랫 데이터 최적화
+#### jpabook.jpashop.api.OrderApiController
+    @GetMapping("/api/v6/orders")
+        public List<OrderQueryDto> orderV6() {
+    
+            List<OrderFlatDto> flats = orderQueryRepository.findAllByDto_flat();
+            return flats.stream()
+                    .collect(groupingBy(o -> new OrderQueryDto(o.getOrderId(),
+                                    o.getName(), o.getOrderDate(), o.getOrderStatus(), o.getAddress()),
+                            mapping(o -> new OrderItemQueryDto(o.getOrderId(),
+                                    o.getItemName(), o.getOrderPrice(), o.getCount()), toList())
+                    )).entrySet().stream()
+                    .map(e -> new OrderQueryDto(e.getKey().getOrderId(),
+                            e.getKey().getName(), e.getKey().getOrderDate(), e.getKey().getOrderStatus(),
+                            e.getKey().getAddress(), e.getValue()))
+                    .collect(toList());
+        }
+    
+#### jpabook.jpashop.repository.order.query.OrderQueryDto
+    package jpabook.jpashop.repository.order.query;
+    
+    import jpabook.jpashop.domain.Address;
+    import jpabook.jpashop.domain.OrderStatus;
+    import lombok.Data;
+    import lombok.EqualsAndHashCode;
+    
+    import java.time.LocalDateTime;
+    import java.util.List;
+    
+    @Data
+    @EqualsAndHashCode(of = "orderId")
+    public class OrderQueryDto {
+    
+        private Long orderId;
+        private String name;
+        private LocalDateTime orderDate;
+        private OrderStatus orderStatus;
+        private Address address;
+        private List<OrderItemQueryDto> orderItems;
+    
+        public OrderQueryDto(Long orderId, String name, LocalDateTime orderDate, OrderStatus orderStatus, Address address) {
+            this.orderId = orderId;
+            this.name = name;
+            this.orderDate = orderDate;
+            this.orderStatus = orderStatus;
+            this.address = address;
+        }
+    
+        public OrderQueryDto(Long orderId, String name, LocalDateTime orderDate, OrderStatus orderStatus, Address address, List<OrderItemQueryDto> orderItems) {
+            this.orderId = orderId;
+            this.name = name;
+            this.orderDate = orderDate;
+            this.orderStatus = orderStatus;
+            this.address = address;
+            this.orderItems = orderItems;
+        }
+    }
+
+#### jpabook.jpashop.repository.order.query.OrderQueryRepsitory
+    public List<OrderFlatDto> findAllByDto_flat() {
+            return em.createQuery(
+                    "select new jpabook.jpashop.repository.order.query.OrderFlatDto(o.id, m.name, o.orderDate, o.status, d.address, i.name, oi.orderPrice, oi.count)" +
+    
+                    " from Order o" +
+                            " join o.member m" +
+                            " join o.delivery d" +
+                            " join o.orderItems oi" +
+                            " join oi.item i", OrderFlatDto.class)
+                    .getResultList();
+        }
+        
+#### jpabook.jpashop.repository.order.query.OrderFlatDto
+    package jpabook.jpashop.repository.order.query;
+    
+    import jpabook.jpashop.domain.Address;
+    import jpabook.jpashop.domain.OrderStatus;
+    import lombok.Data;
+    
+    import java.time.LocalDateTime;
+    import java.util.List;
+    
+    @Data
+    public class OrderFlatDto {
+    
+        private Long orderId;
+        private String name;
+        private LocalDateTime orderDate; //주문시간 private Address address;
+    
+        private OrderStatus orderStatus;
+        private String itemName;//상품 명 private int orderPrice; //주문 가격 private int count; //주문 수량
+        private Address address;
+        private int orderPrice;
+        private int count;
+    
+        public OrderFlatDto(Long orderId, String name, LocalDateTime orderDate,
+                            OrderStatus orderStatus, Address address, String itemName, int orderPrice, int
+                                    count) {
+            this.orderId = orderId;
+            this.name = name;
+            this.orderDate = orderDate;
+            this.orderStatus = orderStatus;
+            this.address = address;
+            this.itemName = itemName;
+            this.orderPrice = orderPrice;
+            this.count = count;
+        }
+    }
+
+* Query 호출이 1번으로 이루어진다.
+* 단점
+    * Query는 한번 호출되지만 조인으로 인해 DB에서 애플리케이션에 전달하는 데이터의 중복 데이터가 추가되므로 상황에 따라 V5 보다 느릴 수 있다.
+    * 애플리케이션에 추가 작업이 크다.
+    * 페이징이 불가능하다.
